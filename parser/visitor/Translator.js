@@ -57,6 +57,7 @@ export default class Tokenizer extends Visitor {
 
     visitExpresion(node) {
         const condition = node.expr.accept(this);
+        console.log(node.qty);
         switch (node.qty) {
             case '+':
                 return `
@@ -78,6 +79,39 @@ export default class Tokenizer extends Visitor {
                 end do
                 `;
             case '?':
+                return `
+                if (${condition}) then
+                    
+                end if
+                `;
+            case '|1..|':
+                return `
+                if (.not. (${condition})) then
+                    cycle
+                end if
+                do while (.not. cursor > len(input))
+                    if (.not. (${condition})) then
+                        exit
+                    end if
+                end do
+                `;
+            case '|0..|':
+                return `
+                do while (.not. cursor > len(input))
+                    if (.not. (${condition})) then
+                        exit
+                    end if
+                end do
+                `;
+            case '|1|':
+                return `
+                if (.not. (${condition})) then
+                    cycle
+                end if
+                `;
+            case '|0|':
+                return '';
+            case '|0..1|':
                 return `
                 if (${condition}) then
                     
