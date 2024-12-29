@@ -11,7 +11,7 @@ export default class Tokenizer extends Visitor {
     }
     visitProducciones(node) {
         return `
-        function peg_${node.id}() result(accept)
+        recursive function peg_${node.id}() result(accept)
             logical :: accept
             integer :: i
 
