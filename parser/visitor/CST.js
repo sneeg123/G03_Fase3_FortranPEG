@@ -3,11 +3,12 @@ import Node from './Node.js';
 
 export class Producciones extends Node {
 
-    constructor(id, expr, alias) {
+    constructor(id, expr, alias, start) {
         super();
         this.id = id;
 		this.expr = expr;
 		this.alias = alias;
+        this.start = start;
     }
 
     accept(visitor) {

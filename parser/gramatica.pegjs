@@ -17,6 +17,7 @@ gramatica
     if (noEncontrados.length > 0) {
         errores.push(new ErrorReglas("Regla no encontrada: " + noEncontrados[0]));
     }
+    prods[0].start = true;
     return prods;
   }
 
@@ -53,10 +54,7 @@ expresiones
   / val:$literales isCase:"i"? {
     return new n.String(val.replace(/['"]/g, ''), isCase);
   }
-  / "(" _ opciones:opciones _ ")"{
-    return new n.grupo(opciones);
-  }
-
+  / "(" _ @opciones _ ")"
   / exprs:corchetes isCase:"i"?{
     //console.log("Corchetes", exprs);
     return new n.Corchetes(exprs, isCase);
@@ -84,7 +82,7 @@ conteo = "|" _ (numero / id:identificador) _ "|"
 
 // Regla principal que analiza corchetes con contenido
 corchetes
-    = "[" contenido:(rango / contenido)+ "]" {
+    = "[" contenido:(rango)+ "]" {
         return contenido;
     }
 
@@ -92,7 +90,8 @@ corchetes
 rango
     = inicio:$caracter "-" fin:$caracter {
         return new  n.rango(inicio, fin);
-    }
+    } 
+    / $texto
 
 // Regla para caracteres individuales
 caracter
@@ -100,8 +99,8 @@ caracter
 
 // Coincide con cualquier contenido que no incluya "]"
 contenido
-    = contenido: (corchete / @$texto){
-        return new n.literalRango(contenido);
+    = contenido: (@$texto){
+        // return new n.literalRango(contenido);
     }
 
 corchete
