@@ -69,6 +69,20 @@ export default class Tokenizer extends Visitor {
                     end if
                 end do
                 `;
+            case '*':
+                return `
+                do while (.not. cursor > len(input))
+                    if (.not. (${condition})) then
+                        exit
+                    end if
+                end do
+                `;
+            case '?':
+                return `
+                if (${condition}) then
+                    
+                end if
+                `;
             default:
                 return `
                 if (.not. (${condition})) then
@@ -127,7 +141,8 @@ export default class Tokenizer extends Visitor {
     }
 
     visitidRel(node) {
-        return `peg_${node.id}()`;
+        console.log(node.val);
+        return `peg_${node.val}()`;
     }
     //falta
     visitgrupo(node) {
