@@ -6,7 +6,10 @@
 }}
 
 gramatica
-  = _ prods:producciones+ _ {
+  = _ block:block? _ prods:producciones+ _ {
+
+    console.log("Block al inicio", block);
+
     let duplicados = ids.filter((item, index) => ids.indexOf(item) !== index);
     if (duplicados.length > 0) {
         errores.push(new ErrorReglas("Regla duplicada: " + duplicados[0]));
@@ -22,13 +25,15 @@ gramatica
   }
 
 producciones
-  = _ id:identificador _ alias:$(literales)? _ "=" _ expr:opciones (_";")? {
+  = _ id:identificador _ alias:$(literales)? _ "=" _ expr:opciones _ llaves:block? (_";")? {
     ids.push(id);
+    console.log("LLAVES", llaves);
     return new n.Producciones(id, expr, alias);
   }
 
 opciones
-  = expr:union rest:(_ "/" _ @union)* {
+  = expr:union rest:(_ "/" _ @union)* _ llaves:block_parentesis*{
+    console.log("llaves en parentesis", llaves)
     return new n.Opciones([expr, ...rest]);
   }
 
@@ -37,14 +42,17 @@ union
     return new n.Union([expr, ...rest]);
   }
 
-expresion
-  = label:$(etiqueta/varios)? _ expr:expresiones _ qty:$([?+*]/conteo)? {
-    return new n.Expresion(expr, label, qty);
+expresion // @"suma" &{}
+  = label:$(etiqueta/varios/Pluck)? varios:varios? _ expr:expresiones _ qty:$([?+*]/conteo)? {
+    console.log("LABEL", label)
+    return new n.Expresion(expr, label, qty, varios);
   }
 
-etiqueta = ("@")? _ id:identificador _ ":" (varios)?
+etiqueta = Pluck? _ id:identificador _ ":" (varios/ Pluck)?
 
-varios = ("!"(!".") /"$"/"@"/"&")
+Pluck = "@" 
+
+varios = ("!"(!".") /"$"/"&")
 
 expresiones
   = id:identificador {
@@ -85,6 +93,20 @@ corchetes
     = "[" contenido:(rango)+ "]" {
         return contenido;
     }
+
+block_parentesis = _ "(" _ content:block _ ")" _  {
+    return content;
+}
+
+block
+  = "{" content:blockContent"}" {
+      return content
+  } 
+
+blockContent
+  = (block / [^{}])* {
+      return text();
+  }
 
 // Regla para validar un rango como [A-Z]
 rango
