@@ -1,6 +1,6 @@
 import * as monaco from 'https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/+esm';
 import { parse } from './parser/gramatica.js';
-import generateParser from './parser/visitor/Utils.js';
+import { generateParser } from './parser/compiler/utils.js';
 
 export let ids = [];
 export let usos = [];

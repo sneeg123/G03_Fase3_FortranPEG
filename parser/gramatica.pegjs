@@ -1,15 +1,18 @@
 {{
+    
+    // let identificadores = []
+
+    // import { identificadores } from '../index.js'
+
     import { ids, usos} from '../index.js'
     import { ErrorReglas } from './error.js';
     import { errores } from '../index.js'
-    import * as n from '../parser/visitor/CST.js';
+
+    import * as n from './visitor/CST.js';
 }}
 
 gramatica
-  = _ block:block? _ prods:producciones+ _ {
-
-    console.log("Block al inicio", block);
-
+  = _ code:globalCode? prods:regla+ _ {
     let duplicados = ids.filter((item, index) => ids.indexOf(item) !== index);
     if (duplicados.length > 0) {
         errores.push(new ErrorReglas("Regla duplicada: " + duplicados[0]));
@@ -21,116 +24,113 @@ gramatica
         errores.push(new ErrorReglas("Regla no encontrada: " + noEncontrados[0]));
     }
     prods[0].start = true;
-    return prods;
+    return new n.Grammar(prods, code);
   }
 
-producciones
-  = _ id:identificador _ alias:$(literales)? _ "=" _ expr:opciones _ llaves:block? (_";")? {
+globalCode
+  = "{" before:$(. !"contains")* [ \t\n\r]* "contains" [ \t\n\r]* after:$[^}]* "}" {
+    return after ? {before, after} : {before}
+  }
+
+regla
+  = _ id:identificador _ alias:(literales)? _ "=" _ expr:opciones (_";")? {
     ids.push(id);
-    console.log("LLAVES", llaves);
-    return new n.Producciones(id, expr, alias);
+    return new n.Regla(id, expr, alias);
   }
 
 opciones
-  = expr:union rest:(_ "/" _ @union)* _ llaves:block_parentesis*{
-    console.log("llaves en parentesis", llaves)
+  = expr:union rest:(_ "/" _ @union)* {
     return new n.Opciones([expr, ...rest]);
   }
 
 union
-  = expr:expresion rest:(_ @expresion !(_ literales? _ "=") )* {
-    return new n.Union([expr, ...rest]);
+  = expr:parsingExpression rest:(_ @parsingExpression !(_ literales? _ "=") )* action:(_ @predicate)? {
+    const exprs = [expr, ...rest];
+    const labeledExprs = exprs
+        .filter((expr) => expr instanceof n.Pluck)
+        .filter((expr) => expr.labeledExpr.label);
+    if (labeledExprs.length > 0) {
+        action.params = labeledExprs.reduce((args, labeled) => {
+            const expr = labeled.labeledExpr.annotatedExpr.expr;
+            args[labeled.labeledExpr.label] =
+                expr instanceof n.Identificador ? expr.id : '';
+            return args;
+        }, {});
+    }
+    return new n.Union(exprs, action);
   }
 
-expresion // @"suma" &{}
-  = label:$(etiqueta/varios/Pluck)? varios:varios? _ expr:expresiones _ qty:$([?+*]/conteo)? {
-    console.log("LABEL", label)
-    return new n.Expresion(expr, label, qty, varios);
+parsingExpression
+  = pluck
+  / '!' assertion:(match/predicate) {
+    return new n.NegAssertion(assertion);
+  }
+  / '&' assertion:(match/predicate) {
+    return new n.Assertion(assertion);
+  }
+  / "!." {
+    return new n.Fin();
   }
 
-etiqueta = Pluck? _ id:identificador _ ":" (varios/ Pluck)?
+pluck
+  = pluck:"@"? _ expr:label {
+    return new n.Pluck(expr, pluck ? true : false);
+  }
 
-Pluck = "@" 
+label
+  = label:(@identificador _ ":")? _ expr:annotated {
+    return new n.Label(expr, label);
+  }
 
-varios = ("!"(!".") /"$"/"&")
+annotated
+  = text:"$"? _ expr:match _ qty:([?+*]/conteo)? {
+    return new n.Annotated(expr, qty, text ? true : false);
+  }
 
-expresiones
+match
   = id:identificador {
-    usos.push(id);
-    return new n.idRel(id);
+    usos.push(id)
+    return new n.Identificador(id);
   }
   / val:$literales isCase:"i"? {
-    return new n.String(val.replace(/['"]/g, ''), isCase);
+    return new n.String(val.replace(/['"]/g, ''), isCase ? true : false);
   }
   / "(" _ @opciones _ ")"
-  / exprs:corchetes isCase:"i"?{
-    //console.log("Corchetes", exprs);
-    return new n.Corchetes(exprs, isCase);
-
+  / chars:clase isCase:"i"? {
+    return new n.Clase(chars, isCase ? true : false);
   }
   / "." {
-    return new n.Any(true);
-  }
-  / "!."{
-    return new n.finCadena();
+    return new n.Punto();
   }
 
-// conteo = "|" parteconteo _ (_ delimitador )? _ "|"
+conteo
+  = "|" _ (numero / id:identificador) _ "|"
+  / "|" _ (numero / id:identificador)? _ ".." _ (numero / id2:identificador)? _ "|"
+  / "|" _ (numero / id:identificador)? _ "," _ opciones _ "|"
+  / "|" _ (numero / id:identificador)? _ ".." _ (numero / id2:identificador)? _ "," _ opciones _ "|"
 
-conteo = "|" _ (numero / id:identificador) _ "|"
-        / "|" _ (numero / id:identificador)? _ ".." _ (numero / id2:identificador)? _ "|"
-        / "|" _ (numero / id:identificador)? _ "," _ opciones _ "|"
-        / "|" _ (numero / id:identificador)? _ ".." _ (numero / id2:identificador)? _ "," _ opciones _ "|"
-
-// parteconteo = identificador
-//             / [0-9]? _ ".." _ [0-9]?
-// 			/ [0-9]
-
-// delimitador =  "," _ expresion
-
-// Regla principal que analiza corchetes con contenido
-corchetes
-    = "[" contenido:(rango)+ "]" {
-        return contenido;
-    }
-
-block_parentesis = _ "(" _ content:block _ ")" _  {
-    return content;
-}
-
-block
-  = "{" content:blockContent"}" {
-      return content
-  } 
-
-blockContent
-  = (block / [^{}])* {
-      return text();
+predicate
+  = "{" [ \t\n\r]* returnType:predicateReturnType code:$[^}]* "}" {
+    return new n.Predicate(returnType, code, {})
   }
 
-// Regla para validar un rango como [A-Z]
-rango
-    = inicio:$caracter "-" fin:$caracter {
-        return new  n.rango(inicio, fin);
-    } 
-    / $texto
+predicateReturnType
+  = t:$(. !"::")+ [ \t\n\r]* "::" [ \t\n\r]* "res" {
+    return t.trim();
+  }
 
-// Regla para caracteres individuales
+clase
+  = "[" @contenidoClase+ "]"
+
+contenidoClase
+  = bottom:$caracter "-" top:$caracter {
+    return new n.Rango(bottom, top);
+  }
+  / $caracter
+
 caracter
-    = [a-zA-Z0-9_ ] 
-
-// Coincide con cualquier contenido que no incluya "]"
-contenido
-    = contenido: (@$texto){
-        // return new n.literalRango(contenido);
-    }
-
-corchete
-    = "[" contenido "]"
-
-texto
-    = "\\" escape
-    /[^\[\]]
+  = [^\[\]\\]
+  / "\\" .
 
 literales
   = '"' @stringDobleComilla* '"'
@@ -165,14 +165,11 @@ secuenciaFinLinea = "\r\n" / "\n" / "\r" / "\u2028" / "\u2029"
 //     "\"" [^"]* "\""
 //     / "'" [^']* "'"
     
-
 numero = [0-9]+
 
 identificador = [_a-z]i[_a-z0-9]i* { return text() }
 
-
 _ = (Comentarios /[ \t\n\r])*
-
 
 Comentarios = 
     "//" [^\n]* 
