@@ -246,7 +246,12 @@ export default class FortranTranslator {
      * @this {Visitor}
      */
     visitString(node) {
-        return `acceptString('${node.val}')`;
+        if (node.isCase == null){
+            return `acceptString('${node.val}')`;
+        }
+        else {
+            return `acceptStringCI('${node.val}')`;
+        }
     }
 
     /**
@@ -255,28 +260,53 @@ export default class FortranTranslator {
      */
     visitClase(node) {
         // [abc0-9A-Z]
-        let characterClass = [];
-        const set = node.chars
-            .filter((char) => typeof char === 'string')
-            .map((char) => `'${char}'`);
-        const ranges = node.chars
-            .filter((char) => char instanceof CST.Rango)
-            .map((range) => range.accept(this));
-        if (set.length !== 0) {
+    let characterClass = [];
+    const literalMap = {
+        "\\t": "char(9)",  // Tabulación
+        "\\n": "char(10)", // Nueva línea
+        " ": "char(32)",   // Espacio
+        "\\r": "char(13)", // Retorno de carro
+    };
+    const set = node.chars
+        .filter((char) => typeof char === 'string')
+        .map((char) => {
+            if (literalMap[char]) {
+                return literalMap[char];
+            } else if (node.isCase == null) {
+                return `'${char}'`;
+            } else {
+                return `'${char.toLowerCase()}'`;
+            }
+        });
+    const ranges = node.chars
+        .filter((char) => char instanceof CST.Rango)
+        .map((range) => {
+            range.isCase = node.isCase;
+            return range.accept(this);
+        });
+    if (set.length !== 0) {
+        if (node.isCase == null) {
             characterClass = [`acceptSet([${set.join(',')}])`];
+        } else {
+            characterClass = [`acceptSetCI([${set.join(',')}])`];
         }
-        if (ranges.length !== 0) {
-            characterClass = [...characterClass, ...ranges];
-        }
-        return `(${characterClass.join(' .or. ')})`; // acceptSet(['a','b','c']) .or. acceptRange('0','9') .or. acceptRange('A','Z')
     }
+    if (ranges.length !== 0) {
+        characterClass = [...characterClass, ...ranges];
+    }
+    return `(${characterClass.join(' .or. ')})`; // acceptSet(['a','b','c']) .or. acceptRange('0','9') .or. acceptRange('A','Z')
+}
 
-    /**
-     * @param {CST.Rango} node
-     * @this {Visitor}
-     */
+/**
+ * @param {CST.Rango} node
+ * @this {Visitor}
+ */
     visitRango(node) {
-        return `acceptRange('${node.bottom}', '${node.top}')`;
+        if (node.isCase == null) {
+            return `acceptRange('${node.bottom}', '${node.top}')`;
+        } else {
+            return `acceptRangeCI('${node.bottom}', '${node.top}')`;
+        }
     }
 
     /**

@@ -56,6 +56,23 @@ module parser
        accept = .true.
    end function acceptString
 
+   function acceptStringCI(str) result(accept)
+        character(len=*) :: str
+        logical :: accept
+        integer :: offset
+        character(len=len(str)) :: lower_input
+    
+        offset = len(str) - 1
+        lower_input = tolower(input(cursor:cursor + offset))
+        if (tolower(str) /= lower_input) then
+            accept = .false.
+            return
+        end if
+        cursor = cursor + len(str)
+        accept = .true.
+    end function acceptStringCI
+
+
    function acceptRange(bottom, top) result(accept)
        character(len=1) :: bottom, top
        logical :: accept
@@ -68,6 +85,20 @@ module parser
        accept = .true.
    end function acceptRange
 
+   function acceptRangeCI(bottom, top) result(accept)
+        character(len=1) :: bottom, top
+        logical :: accept
+        character(len=1) :: lower_input
+
+        lower_input = tolower(input(cursor:cursor))
+        if (.not. (lower_input >= tolower(bottom) .and. lower_input <= tolower(top))) then
+            accept = .false.
+            return
+        end if
+        cursor = cursor + 1
+        accept = .true.
+    end function acceptRangeCI
+
    function acceptSet(set) result(accept)
        character(len=1), dimension(:) :: set
        logical :: accept
@@ -79,6 +110,22 @@ module parser
        cursor = cursor + 1
        accept = .true.
    end function acceptSet
+
+    
+
+    function acceptSetCI(set) result(accept)
+        character(len=1), dimension(:) :: set
+        logical :: accept
+        character(len=1) :: lower_input
+
+        lower_input = tolower(input(cursor:cursor))
+        if (.not. (findloc(set, lower_input, 1) > 0)) then
+            accept = .false.
+            return
+        end if
+        cursor = cursor + 1
+        accept = .true.
+    end function acceptSetCI
 
    function acceptPeriod() result(accept)
        logical :: accept
@@ -128,6 +175,21 @@ module parser
 
        cast = str
    end function strToStr
+
+
+   function tolower(str) result(lower_str)
+        character(len=*), intent(in) :: str
+        character(len=len(str)) :: lower_str
+        integer :: i
+
+        lower_str = str 
+        do i = 1, len(str)
+            if (iachar(str(i:i)) >= iachar('A') .and. iachar(str(i:i)) <= iachar('Z')) then
+                lower_str(i:i) = achar(iachar(str(i:i)) + 32)
+            end if
+        end do
+    end function tolower
+
 end module parser
 `;
 
