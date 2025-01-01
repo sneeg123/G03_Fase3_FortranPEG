@@ -274,7 +274,7 @@ export default class FortranTranslator {
      * @this {Visitor}
      */
     visitString(node) {
-        if (node.isCase == null){
+        if (node.isCase == null || node.isCase == false) {
             return `acceptString('${node.val}')`;
         }
         else {
@@ -313,7 +313,7 @@ export default class FortranTranslator {
             return range.accept(this);
         });
     if (set.length !== 0) {
-        if (node.isCase == null) {
+        if (node.isCase == null || node.isCase == false) {
             characterClass = [`acceptSet([${set.join(',')}])`];
         } else {
             characterClass = [`acceptSetCI([${set.join(',')}])`];
@@ -330,7 +330,7 @@ export default class FortranTranslator {
  * @this {Visitor}
  */
     visitRango(node) {
-        if (node.isCase == null) {
+        if (node.isCase == null || node.isCase == false) {
             return `acceptRange('${node.bottom}', '${node.top}')`;
         } else {
             return `acceptRangeCI('${node.bottom}', '${node.top}')`;
