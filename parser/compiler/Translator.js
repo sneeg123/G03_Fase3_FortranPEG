@@ -177,6 +177,34 @@ export default class FortranTranslator {
         if (node.qty && typeof node.qty === 'string') {
             if (node.expr instanceof CST.Identificador) {
                 // TODO: Implement quantifiers (i.e., ?, *, +)
+                if(node.qty == '*'){
+                    return `${getExprId(
+                        this.currentChoice,
+                        this.currentExpr)} = ""
+                        temp = "-"
+                        do while (.not. temp == "")
+                            temp = ${node.expr.accept(this).replace(/\(\)$/, "")}_kleene()
+                            ${getExprId(this.currentChoice, this.currentExpr)} = ${getExprId(this.currentChoice, this.currentExpr)} // temp
+                        end do
+                        `
+                }
+                if(node.qty == '+'){
+                    return `${getExprId(
+                        this.currentChoice,
+                        this.currentExpr)} = ${node.expr.accept(this)}
+                        temp = "-"
+                        do while (.not. temp == "")
+                            temp = ${node.expr.accept(this).replace(/\(\)$/, "")}_kleene()
+                            ${getExprId(this.currentChoice, this.currentExpr)} = ${getExprId(this.currentChoice, this.currentExpr)} // temp
+                        end do
+                        `
+                }
+                if(node.qty == '?'){
+                    return `${getExprId(
+                        this.currentChoice,
+                        this.currentExpr)} = ${node.expr.accept(this).replace(/\(\)$/, "")}_kleene()
+                        `
+                }
                 return `${getExprId(
                     this.currentChoice,
                     this.currentExpr

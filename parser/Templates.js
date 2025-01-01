@@ -207,11 +207,25 @@ export const rule = (data) => `
    function peg_${data.id}() result (res)
        ${data.returnType} :: res
        ${data.exprDeclarations.join('\n')}
+       character(len=:), allocatable :: temp
        integer :: i
 
        savePoint = cursor
        ${data.expr}
    end function peg_${data.id}
+
+   function peg_${data.id}_kleene() result (res)
+       ${data.returnType} :: res
+       ${data.exprDeclarations.join('\n')}
+       character(len=:), allocatable :: temp
+       integer :: i
+
+       savePoint = cursor
+       ${data.expr.replace(
+        /case default[\s\S]*?call pegError\(\)/,
+        'case default\n        res = ""'
+    )}
+   end function peg_${data.id}_kleene
 `;
 
 /**
@@ -263,29 +277,43 @@ export const union = (data) => `
 * @returns
 */
 export const strExpr = (data) => {
-   if (!data.quantifier) {
-       return `
-               lexemeStart = cursor
-               if(.not. ${data.expr}) cycle
-               ${data.destination} = consumeInput()
-       `;
-   }
-   switch (data.quantifier) {
-       case '+':
-           return `
-               lexemeStart = cursor
-               if (.not. ${data.expr}) cycle
-               do while (.not. cursor > len(input))
-                   if (.not. ${data.expr}) exit
-               end do
-               ${data.destination} = consumeInput()
-           `;
-       default:
-           throw new Error(
-               `'${data.quantifier}' quantifier needs implementation`
-           );
-   }
-};
+    if (!data.quantifier) {
+        return `
+                lexemeStart = cursor
+                if(.not. ${data.expr}) cycle
+                ${data.destination} = consumeInput()
+        `;
+    }
+    switch (data.quantifier) {
+        case '+':
+            return `
+                lexemeStart = cursor
+                if (.not. ${data.expr}) cycle
+                do while (.not. cursor > len(input))
+                    if (.not. ${data.expr}) exit
+                end do
+                ${data.destination} = consumeInput()
+            `;
+         case '*':
+               return `
+                 lexemeStart = cursor
+                 do while (.not. cursor > len(input))
+                      if (.not. ${data.expr}) exit
+                 end do
+                 ${data.destination} = consumeInput()
+               `;
+         case '?':
+                 return `
+                     lexemeStart = cursor
+                     if (.not. ${data.expr}) cycle
+                     ${data.destination} = consumeInput()
+                 `;
+        default:
+            throw new Error(
+                `'${data.quantifier}' quantifier needs implementation`
+            );
+    }
+ };
 
 /**
 *
