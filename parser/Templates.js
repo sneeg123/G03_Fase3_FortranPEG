@@ -1,3 +1,4 @@
+
 /**
  *
  * @param {{
@@ -208,6 +209,7 @@ export const rule = (data) => `
        ${data.returnType} :: res
        ${data.exprDeclarations.join('\n')}
        character(len=:), allocatable :: temp
+       integer :: count, min_reps, max_reps
        integer :: i
 
        savePoint = cursor
@@ -218,6 +220,7 @@ export const rule = (data) => `
        ${data.returnType} :: res
        ${data.exprDeclarations.join('\n')}
        character(len=:), allocatable :: temp
+       integer :: count, min_reps, max_reps
        integer :: i
 
        savePoint = cursor
@@ -268,14 +271,14 @@ export const union = (data) => `
 `;
 
 /**
-*
-* @param {{
-*  expr: string;
-*  destination: string
-*  quantifier?: string;
-* }} data
-* @returns
-*/
+ *
+ * @param {{
+ *  expr: string;
+ *  destination: string
+ *  quantifier?: string;
+ * }} data
+ * @returns
+ */
 export const strExpr = (data) => {
     if (!data.quantifier) {
         return `
@@ -309,10 +312,137 @@ export const strExpr = (data) => {
                      ${data.destination} = consumeInput()
                  `;
         default:
+            console.log(data.quantifier)
+            
+            if (data.quantifier.length == 5){
+                
+                if (data.quantifier[2][0] != 0){
+                    return `
+                        max_reps = ${data.quantifier[2][0]}
+                        lexemeStart = cursor
+                        count = 0
+                        do while (count < max_reps)
+                            if (.not.  ${data.expr}) then
+                                exit
+                            end if
+                            count = count + 1
+                        end do
+                        !detectar minimo o maximo 
+                        if ( count .NE. max_reps) then
+                            cycle
+                        end if   
+                        ${data.destination} = consumeInput()
+                    `;
+                }else{
+                    throw new Error('Cantida debe ser mayor a 0');
+                }
+            }else if(data.quantifier.length == 9){
+                
+                if (data.quantifier[4] == ".."){
+                    
+                    if (data.quantifier[2] == null &  data.quantifier[6] == null){
+                        return `
+                            lexemeStart = cursor
+                            do while (.not. cursor > len(input))
+                                if (.not. ${data.expr}) exit
+                            end do
+                            ${data.destination} = consumeInput()
+                        `;
+                    }else if (data.quantifier[2] == null){
+                        return`
+                        lexemeStart = cursor
+                        max_reps = ${data.quantifier[6][0]}  ! Número maximo de repeticiones permitidas
+                        count = 0
+                        do while (count < max_reps)
+                            if (.not. (${data.expr})) then
+                                exit
+                            end if
+                            count = count + 1
+                        end do  
+                        !detectar minimo o maximo 
+                        if (count > max_reps ) then
+                            cycle
+                        end if 
+                        ${data.destination} = consumeInput()          
+                        `; 
+                    }else if (data.quantifier[6] == null){
+                        return`
+                                lexemeStart = cursor
+                                min_reps = ${data.quantifier[2][0]}  ! Número mínimo de repeticiones permitidas
+                                count = 0
+                                do while (.not. cursor > len(input))
+                                    if (.not. (${data.expr})) then
+                                        exit
+                                    end if
+                                    count = count + 1
+                                end do  
+                                !detectar minimo o maximo 
+                                if (count < min_reps ) then
+                                    cycle
+                                end if
+                                ${data.destination} = consumeInput()                   
+                            `; 
+                    }else{
+                        return `
+                                lexemeStart = cursor
+                                min_reps = ${data.quantifier[2][0]}  ! Número mínimo de repeticiones permitidas
+                                max_reps = ${data.quantifier[6][0]}  ! Número máximo de repeticiones permitidas
+                                count = 0 
+                                do while (count < max_reps)
+                                    if (.not. (${data.expr})) then
+                                        exit
+                                    end if
+                                    count = count + 1
+                                end do
+                                !detectar minimo o maximo 
+                                if (count < min_reps .or. count > max_reps) then
+                                    cycle
+                                end if 
+                                ${data.destination} = consumeInput()                      
+                    `
+                    }
+                }if (data.quantifier[4] == ","){
+                    
+                    if (data.quantifier[2][0] != 0) {
+                        let opcionesTranslation = '';
+                        if (data.quantifier[6] instanceof CST.Opciones) {
+                            opcionesTranslation = this.visitOpciones(data.quantifier[6]);
+                        }
+                        return `
+                        max_reps = ${data.quantifier[2][0]}
+                        count = 0
+                        lexemeStart = cursor
+
+
+                        do while (count < max_reps) 
+                            if (.not.  ${data.expr}) then
+                                cycle  ! Manejar el error si no hay una letra
+                            end if
+                            
+
+                            ! Verificar si se necesita una coma después de la letra
+                            
+                            if (count < max_reps-1) then
+                                if (.not. ${opcionesTranslation}) then
+                                    cycle  ! Manejar el error si no hay una coma
+                                end if
+                            count = count + 1
+                        end do
+                        ${data.destination} = consumeInput()
+                        
+                    `;
+                    }else{
+                        throw new Error('Cantida debe ser mayor a 0');
+                    }
+                }
+            }
+        
             throw new Error(
                 `'${data.quantifier}' quantifier needs implementation`
             );
     }
+    
+    
  };
 
 /**

@@ -189,6 +189,7 @@ export default class FortranTranslator {
                         `
                 }
                 if(node.qty == '+'){
+                    console.log("ASFASDF")
                     return `${getExprId(
                         this.currentChoice,
                         this.currentExpr)} = ${node.expr.accept(this)}
@@ -205,6 +206,7 @@ export default class FortranTranslator {
                         this.currentExpr)} = ${node.expr.accept(this).replace(/\(\)$/, "")}_kleene()
                         `
                 }
+
                 return `${getExprId(
                     this.currentChoice,
                     this.currentExpr
@@ -216,8 +218,18 @@ export default class FortranTranslator {
                 destination: getExprId(this.currentChoice, this.currentExpr),
             });
         } else if (node.qty) {
-            // TODO: Implement repetitions (e.g., |3|, |1..3|, etc...)
-            throw new Error('Repetitions not implemented.');
+            if (node.expr instanceof CST.Identificador) {
+
+            }else{
+                return Template.strExpr({
+                    quantifier: node.qty,
+                    expr: node.expr.accept(this),
+                    destination: getExprId(this.currentChoice, this.currentExpr),
+                });  
+            }
+    
+            
+
         } else {
             if (node.expr instanceof CST.Identificador) {
                 return `${getExprId(
