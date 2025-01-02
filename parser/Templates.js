@@ -1,16 +1,15 @@
-
 /**
  *
  * @param {{
-*  beforeContains: string
-*  afterContains: string
-*  startingRuleId: string;
-*  startingRuleType: string;
-*  rules: string[];
-*  actions: string[];
-* }} data
-* @returns {string}
-*/
+ *  beforeContains: string
+ *  afterContains: string
+ *  startingRuleId: string;
+ *  startingRuleType: string;
+ *  rules: string[];
+ *  actions: string[];
+ * }} data
+ * @returns {string}
+ */
 export const main = (data) => `
 !auto-generated
 module parser
@@ -39,9 +38,9 @@ module parser
        res = ${data.startingRuleId}()
    end function parse
 
-   ${data.rules.join('\n')}
+   ${data.rules.join("\n")}
 
-   ${data.actions.join('\n')}
+   ${data.actions.join("\n")}
 
    function acceptString(str) result(accept)
        character(len=*) :: str
@@ -195,19 +194,19 @@ end module parser
 `;
 
 /**
-*
-* @param {{
-*  id: string;
-*  returnType: string;
-*  exprDeclarations: string[];
-*  expr: string;
-* }} data
-* @returns
-*/
+ *
+ * @param {{
+ *  id: string;
+ *  returnType: string;
+ *  exprDeclarations: string[];
+ *  expr: string;
+ * }} data
+ * @returns
+ */
 export const rule = (data) => `
    function peg_${data.id}() result (res)
        ${data.returnType} :: res
-       ${data.exprDeclarations.join('\n')}
+       ${data.exprDeclarations.join("\n")}
        character(len=:), allocatable :: temp
        integer :: count, min_reps, max_reps
        integer :: i
@@ -216,39 +215,51 @@ export const rule = (data) => `
        ${data.expr}
    end function peg_${data.id}
 
+    function peg_${data.id}_negative() result (res)
+       ${data.returnType} :: res
+       ${data.exprDeclarations.join("\n")}
+       character(len=:), allocatable :: temp
+       integer :: i
+
+       savePoint = cursor
+        ${data.expr.replace(/if\(\.not\./g, "if(")}
+    end function peg_${data.id}_negative
+
    function peg_${data.id}_kleene() result (res)
        ${data.returnType} :: res
-       ${data.exprDeclarations.join('\n')}
+       ${data.exprDeclarations.join("\n")}
        character(len=:), allocatable :: temp
        integer :: count, min_reps, max_reps
        integer :: i
 
        savePoint = cursor
        ${data.expr.replace(
-        /case default[\s\S]*?call pegError\(\)/,
-        'case default\n        res = ""'
-    )}
+         /case default[\s\S]*?call pegError\(\)/,
+         'case default\n        res = ""'
+       )}
    end function peg_${data.id}_kleene
 `;
 
 /**
-*
-* @param {{
-*  exprs: string[]
-* }} data
-* @returns
-*/
+ *
+ * @param {{
+ *  exprs: string[]
+ * }} data
+ * @returns
+ */
 export const election = (data) => `
        do i = 0, ${data.exprs.length}
            select case(i)
-           ${data.exprs.map(
+           ${data.exprs
+             .map(
                (expr, i) => `
            case(${i})
                cursor = savePoint
                ${expr}
                exit
            `
-           ).join('')}
+             )
+             .join("")}
            case default
                call pegError()
            end select
@@ -256,17 +267,17 @@ export const election = (data) => `
 `;
 
 /**
-*
-* @param {{
-*  exprs: string[]
-*  startingRule: boolean
-*  resultExpr: string
-* }} data
-* @returns
-*/
+ *
+ * @param {{
+ *  exprs: string[]
+ *  startingRule: boolean
+ *  resultExpr: string
+ * }} data
+ * @returns
+ */
 export const union = (data) => `
-               ${data.exprs.join('\n')}
-               ${data.startingRule ? 'if (.not. acceptEOF()) cycle' : ''}
+               ${data.exprs.join("\n")}
+               ${data.startingRule ? "if (.not. acceptEOF()) cycle" : ""}
                ${data.resultExpr}
 `;
 
@@ -280,16 +291,16 @@ export const union = (data) => `
  * @returns
  */
 export const strExpr = (data) => {
-    if (!data.quantifier) {
-        return `
+  if (!data.quantifier) {
+    return `
                 lexemeStart = cursor
                 if(.not. ${data.expr}) cycle
                 ${data.destination} = consumeInput()
         `;
-    }
-    switch (data.quantifier) {
-        case '+':
-            return `
+  }
+  switch (data.quantifier) {
+    case "+":
+      return `
                 lexemeStart = cursor
                 if (.not. ${data.expr}) cycle
                 do while (.not. cursor > len(input))
@@ -297,27 +308,26 @@ export const strExpr = (data) => {
                 end do
                 ${data.destination} = consumeInput()
             `;
-         case '*':
-               return `
+    case "*":
+      return `
                  lexemeStart = cursor
                  do while (.not. cursor > len(input))
                       if (.not. ${data.expr}) exit
                  end do
                  ${data.destination} = consumeInput()
                `;
-         case '?':
-                 return `
+    case "?":
+      return `
                      lexemeStart = cursor
                      if (.not. ${data.expr}) cycle
                      ${data.destination} = consumeInput()
                  `;
-        default:
-            console.log(data.quantifier)
-            
-            if (data.quantifier.length == 5){
-                
-                if (data.quantifier[2][0] != 0){
-                    return `
+    default:
+      console.log(data.quantifier);
+
+      if (data.quantifier.length == 5) {
+        if (data.quantifier[2][0] != 0) {
+          return `
                         max_reps = ${data.quantifier[2][0]}
                         lexemeStart = cursor
                         count = 0
@@ -333,23 +343,21 @@ export const strExpr = (data) => {
                         end if   
                         ${data.destination} = consumeInput()
                     `;
-                }else{
-                    throw new Error('Cantida debe ser mayor a 0');
-                }
-            }else if(data.quantifier.length == 9){
-                
-                if (data.quantifier[4] == ".."){
-                    
-                    if (data.quantifier[2] == null &  data.quantifier[6] == null){
-                        return `
+        } else {
+          throw new Error("Cantida debe ser mayor a 0");
+        }
+      } else if (data.quantifier.length == 9) {
+        if (data.quantifier[4] == "..") {
+          if ((data.quantifier[2] == null) & (data.quantifier[6] == null)) {
+            return `
                             lexemeStart = cursor
                             do while (.not. cursor > len(input))
                                 if (.not. ${data.expr}) exit
                             end do
                             ${data.destination} = consumeInput()
                         `;
-                    }else if (data.quantifier[2] == null){
-                        return`
+          } else if (data.quantifier[2] == null) {
+            return `
                         lexemeStart = cursor
                         max_reps = ${data.quantifier[6][0]}  ! Número maximo de repeticiones permitidas
                         count = 0
@@ -364,9 +372,9 @@ export const strExpr = (data) => {
                             cycle
                         end if 
                         ${data.destination} = consumeInput()          
-                        `; 
-                    }else if (data.quantifier[6] == null){
-                        return`
+                        `;
+          } else if (data.quantifier[6] == null) {
+            return `
                                 lexemeStart = cursor
                                 min_reps = ${data.quantifier[2][0]}  ! Número mínimo de repeticiones permitidas
                                 count = 0
@@ -381,9 +389,9 @@ export const strExpr = (data) => {
                                     cycle
                                 end if
                                 ${data.destination} = consumeInput()                   
-                            `; 
-                    }else{
-                        return `
+                            `;
+          } else {
+            return `
                                 lexemeStart = cursor
                                 min_reps = ${data.quantifier[2][0]}  ! Número mínimo de repeticiones permitidas
                                 max_reps = ${data.quantifier[6][0]}  ! Número máximo de repeticiones permitidas
@@ -399,16 +407,16 @@ export const strExpr = (data) => {
                                     cycle
                                 end if 
                                 ${data.destination} = consumeInput()                      
-                    `
-                    }
-                }if (data.quantifier[4] == ","){
-                    
-                    if (data.quantifier[2][0] != 0) {
-                        let opcionesTranslation = '';
-                        if (data.quantifier[6] instanceof CST.Opciones) {
-                            opcionesTranslation = this.visitOpciones(data.quantifier[6]);
-                        }
-                        return `
+                    `;
+          }
+        }
+        if (data.quantifier[4] == ",") {
+          if (data.quantifier[2][0] != 0) {
+            let opcionesTranslation = "";
+            if (data.quantifier[6] instanceof CST.Opciones) {
+              opcionesTranslation = this.visitOpciones(data.quantifier[6]);
+            }
+            return `
                         max_reps = ${data.quantifier[2][0]}
                         count = 0
                         lexemeStart = cursor
@@ -431,60 +439,68 @@ export const strExpr = (data) => {
                         ${data.destination} = consumeInput()
                         
                     `;
-                    }else{
-                        throw new Error('Cantida debe ser mayor a 0');
-                    }
-                }
-            }
-        
-            throw new Error(
-                `'${data.quantifier}' quantifier needs implementation`
-            );
-    }
-    
-    
- };
+          } else {
+            throw new Error("Cantida debe ser mayor a 0");
+          }
+        }
+      }
+
+      throw new Error(`'${data.quantifier}' quantifier needs implementation`);
+  }
+};
+
+export const strExpr_Assertion = (data) => {
+  return `
+                if(.not. ${data.expr}) cycle
+        `;
+};
+
+export const strExpr_NegAssertion = (data) => {
+  return `
+                if(${data.expr}) cycle
+        `;
+};
 
 /**
-*
-* @param {{
-*  exprs: string[];
-* }} data
-* @returns
-*/
+ *
+ * @param {{
+ *  exprs: string[];
+ * }} data
+ * @returns
+ */
 export const strResultExpr = (data) => `
-               res = ${data.exprs.map((expr) => `toStr(${expr})`).join('//')}
+               res = ${data.exprs.map((expr) => `toStr(${expr})`).join("//")}
 `;
 
 /**
-*
-* @param {{
-*  fnId: string;
-*  exprs: string[];
-* }} data
-* @returns
-*/
+ *
+ * @param {{
+ *  fnId: string;
+ *  exprs: string[];
+ * }} data
+ * @returns
+ */
 export const fnResultExpr = (data) => `
-               res = ${data.fnId}(${data.exprs.join(', ')})
+               res = ${data.fnId}(${data.exprs.join(", ")})
 `;
 
 /**
-*
-* @param {{
-*  ruleId: string;
-*  choice: number
-*  signature: string[];
-*  returnType: string;
-*  paramDeclarations: string[];
-*  code: string;
-* }} data
-* @returns
-*/
+ *
+ * @param {{
+ *  ruleId: string;
+ *  choice: number
+ *  signature: string[];
+ *  returnType: string;
+ *  paramDeclarations: string[];
+ *  code: string;
+ * }} data
+ * @returns
+ */
 export const action = (data) => {
-   const signature = data.signature.join(', ');
-   return `
+  const signature = data.signature.join(", ");
+  return `
    function peg_${data.ruleId}_f${data.choice}(${signature}) result(res)
-       ${data.paramDeclarations.join('\n')}
+       ${data.paramDeclarations.join("\n")}
        ${data.returnType} :: res
        ${data.code}
    end function peg_${data.ruleId}_f${data.choice}
