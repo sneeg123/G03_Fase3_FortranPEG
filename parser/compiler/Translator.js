@@ -76,11 +76,10 @@ export default class FortranTranslator {
           .filter((expr) => expr instanceof CST.Pluck)
           .map((label, j) => {
             const expr = label.labeledExpr.annotatedExpr.expr;
-            return `${
-              expr instanceof CST.Identificador
-                ? getReturnType(getActionId(expr.id, i), this.actionReturnTypes)
-                : "character(len=:), allocatable"
-            } :: expr_${i}_${j}`;
+            return `${expr instanceof CST.Identificador
+              ? getReturnType(getActionId(expr.id, i), this.actionReturnTypes)
+              : "character(len=:), allocatable"
+              } :: expr_${i}_${j}`;
           })
       ),
       expr: node.expr.accept(this),
@@ -171,49 +170,98 @@ export default class FortranTranslator {
       if (node.expr instanceof CST.Identificador) {
         // TODO: Implement quantifiers (i.e., ?, *, +)
         if (node.qty == "*") {
-          return `${getExprId(this.currentChoice, this.currentExpr)} = ""
+          let tipo = getReturnType(
+            getActionId(node.expr.id, 0),
+            this.actionReturnTypes
+          );
+          let code = '';
+          if (tipo == 'character(len=:), allocatable') {
+            code += `${getExprId(this.currentChoice, this.currentExpr)} = ""
                         temp = "-"
                         do while (.not. temp == "")
                             temp = ${node.expr
-                              .accept(this)
-                              .replace(/\(\)$/, "")}_kleene()
+                .accept(this)
+                .replace(/\(\)$/, "")}_kleene()
                             ${getExprId(
-                              this.currentChoice,
-                              this.currentExpr
-                            )} = ${getExprId(
-            this.currentChoice,
-            this.currentExpr
-          )} // temp
+                  this.currentChoice,
+                  this.currentExpr
+                )} = ${getExprId(
+                  this.currentChoice,
+                  this.currentExpr
+                )} // temp
                         end do
                         `;
+          } else if (tipo == 'integer') {
+            code += `${getExprId(this.currentChoice, this.currentExpr)} = -99999
+                        tempi = -9999
+                        do while (.not. tempi == -99999)
+                        temp = intToStr(${getExprId(
+              this.currentChoice,
+              this.currentExpr
+            )}) // intToStr(tempi)
+                        ${getExprId(
+              this.currentChoice,
+              this.currentExpr
+            )} = strToInt(temp)
+                        tempi = ${node.expr
+                .accept(this)
+                .replace(/\(\)$/, "")}_kleene()
+                        end do
+                        `;
+          }
+          return code;
         }
         if (node.qty == "+") {
-          console.log("ASFASDF");
-          return `${getExprId(
-            this.currentChoice,
-            this.currentExpr
-          )} = ${node.expr.accept(this)}
+          let code = '';
+          let tipo = getReturnType(
+            getActionId(node.expr.id, 0),
+            this.actionReturnTypes
+          );
+          if (tipo == 'character(len=:), allocatable') {
+            code += `${getExprId(
+              this.currentChoice,
+              this.currentExpr
+            )} = ${node.expr.accept(this)}
                         temp = "-"
                         do while (.not. temp == "")
                             temp = ${node.expr
-                              .accept(this)
-                              .replace(/\(\)$/, "")}_kleene()
+                .accept(this)
+                .replace(/\(\)$/, "")}_kleene()
                             ${getExprId(
-                              this.currentChoice,
-                              this.currentExpr
-                            )} = ${getExprId(
-            this.currentChoice,
-            this.currentExpr
-          )} // temp
+                  this.currentChoice,
+                  this.currentExpr
+                )} = ${getExprId(
+                  this.currentChoice,
+                  this.currentExpr
+                )} // temp
                         end do
                         `;
+          }else if (tipo == 'integer') {
+            code += `${getExprId(this.currentChoice, this.currentExpr)} = ${node.expr.accept(this)}
+                        tempi = -9999
+                        do while (.not. tempi == -99999)
+                        temp = intToStr(${getExprId(
+              this.currentChoice,
+              this.currentExpr
+            )}) // intToStr(tempi)
+                        ${getExprId(
+              this.currentChoice,
+              this.currentExpr
+            )} = strToInt(temp)
+                        tempi = ${node.expr
+                .accept(this)
+                .replace(/\(\)$/, "")}_kleene()
+                        end do
+                        `;
+          }
+          return code;
         }
         if (node.qty == "?") {
           return `${getExprId(
             this.currentChoice,
             this.currentExpr
           )} = ${node.expr.accept(this).replace(/\(\)$/, "")}_kleene()
-                        `;
+          `;
         }
 
         return `${getExprId(

@@ -32,6 +32,7 @@ export async function generateParser(cst) {
  * @returns
  */
 export function getActionId(ruleId, choice) {
+    console.log(`peg_${ruleId}_f${choice}`);
     return `peg_${ruleId}_f${choice}`;
 }
 

@@ -164,7 +164,14 @@ module parser
        integer :: int
        character(len=31) :: tmp
        character(len=:), allocatable :: cast
-
+       if (int == -99999) then
+              cast = ""
+              return
+         end if
+        if (int == -9999) then
+                cast = ""
+                return
+             end if
        write(tmp, '(I0)') int
        cast = trim(adjustl(tmp))
    end function intToStr
@@ -175,6 +182,16 @@ module parser
 
        cast = str
    end function strToStr
+
+   function strToInt(str) result(cast)
+         character(len=:), allocatable :: str
+            integer :: cast
+            if (len(trim(str)) == 0) then
+                cast = -9999
+                return
+            end if
+            read(str, *) cast
+    end function strToInt
 
 
    function tolower(str) result(lower_str)
@@ -208,7 +225,7 @@ export const rule = (data) => `
        ${data.returnType} :: res
        ${data.exprDeclarations.join("\n")}
        character(len=:), allocatable :: temp
-       integer :: count, min_reps, max_reps
+       integer :: count, min_reps, max_reps, tempi
        integer :: i
 
        savePoint = cursor
@@ -219,7 +236,7 @@ export const rule = (data) => `
        ${data.returnType} :: res
        ${data.exprDeclarations.join("\n")}
        character(len=:), allocatable :: temp
-       integer :: i
+       integer :: i, tempi
 
        savePoint = cursor
         ${data.expr.replace(/if\(\.not\./g, "if(")}
@@ -229,16 +246,27 @@ export const rule = (data) => `
        ${data.returnType} :: res
        ${data.exprDeclarations.join("\n")}
        character(len=:), allocatable :: temp
-       integer :: count, min_reps, max_reps
+       integer :: count, min_reps, max_reps, tempi
        integer :: i
 
        savePoint = cursor
-       ${data.expr.replace(
-         /case default[\s\S]*?call pegError\(\)/,
-         'case default\n        res = ""'
-       )}
+       ${getReplaceKleene(data)}
    end function peg_${data.id}_kleene
 `;
+
+function getReplaceKleene(data){
+    if(data.returnType == "character(len=:), allocatable"){
+        return `${data.expr.replace(
+            /case default[\s\S]*?call pegError\(\)/,
+            'case default\n        res = ""'
+          )}`;
+    }else if(data.returnType == "integer"){
+        return `${data.expr.replace(
+            /case default[\s\S]*?call pegError\(\)/,
+            'case default\n        res = -99999'
+          )}`;
+    }
+}
 
 /**
  *
