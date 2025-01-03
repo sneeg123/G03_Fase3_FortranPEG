@@ -193,6 +193,32 @@ module parser
             read(str, *) cast
     end function strToInt
 
+    function acceptStringDelim(str) result(accept)
+      character(len=*) :: str
+      logical :: accept
+      integer :: offset
+      character(len=:), allocatable :: beforeDelim, afterDelim, prueba
+
+      offset = len(str) - 1
+
+          ! Verificar si el delimitador coincide con la parte actual de la cadena
+              if (str /= input(cursor:cursor + offset)) then
+                  accept = .false.
+                  return
+              end if
+
+              ! Realizar el corte
+                  beforeDelim = input(1:cursor-1)       ! Parte antes del lexemeStart
+
+              afterDelim = input(cursor+len(str):)           ! Parte después del delimitador
+
+              input =beforeDelim // afterDelim
+              
+              ! Mover el cursor después del delimitador
+              accept = .true.
+        end function acceptStringDelim
+
+
 
    function tolower(str) result(lower_str)
         character(len=*), intent(in) :: str
@@ -227,6 +253,7 @@ export const rule = (data) => `
        character(len=:), allocatable :: temp
        integer :: count, min_reps, max_reps, tempi
        integer :: i
+       logical :: pivote
 
        savePoint = cursor
        ${data.expr}
@@ -238,6 +265,7 @@ export const rule = (data) => `
        character(len=:), allocatable :: temp
        integer :: count, min_reps, max_reps
        integer :: i, tempi
+       logical :: pivote
 
        savePoint = cursor
         ${data.expr.replace(/if\(\.not\./g, "if(")}
@@ -249,6 +277,7 @@ export const rule = (data) => `
        character(len=:), allocatable :: temp
        integer :: count, min_reps, max_reps, tempi
        integer :: i
+       logical :: pivote
 
        savePoint = cursor
        ${getReplaceKleene(data)}
@@ -456,34 +485,161 @@ export const strExpr = (data) => {
         }
         if (data.quantifier[4] == ",") {
           if (data.quantifier[2][0] != 0) {
+            const coma = data.quantifier[6].exprs[0].exprs[0].labeledExpr.annotatedExpr.expr.val;
+            console.log(coma); 
+              return `
+                max_reps = ${data.quantifier[2][0]}
+                count = 0
+                lexemeStart = cursor
+                do while (count < max_reps)
+                    if (.not. ${data.expr}) then
+                        exit
+                    end if
+                    count = count + 1
+                    if (count < max_reps) then
+                      if (.not. acceptStringDelim('${coma}')) then
+                        exit
+                      end if
+                    end if
+                  end do
+                  if ( count .NE. max_reps) then
+                      cycle
+                  end if 
+                  ${data.destination} = consumeInput()
+                                
+                            `;
+              } else {
+                throw new Error("Cantida debe ser mayor a 0");
+              }
+        }
+      }else if (data.quantifier.length == 13){
+        console.log(data.quantifier);
+        if ((data.quantifier[2] == null) & (data.quantifier[6] == null)) {
+            const coma = data.quantifier[10].exprs[0].exprs[0].labeledExpr.annotatedExpr.expr.val;
+            console.log(coma);
             return `
-                        max_reps = ${data.quantifier[2][0]}
-                        count = 0
+                        pivote = .false.
                         lexemeStart = cursor
+                        
+
+                        if (${data.expr}) then
+                            do while ( .not. cursor > len(input))
+                                if (.not. acceptStringDelim('${coma}')) then
+                                    pivote = .false.
+                                    exit
+                                end if
+                                if (.not. ${data.expr}) then 
+                                    pivote = .true.
+                                    exit
+                                end if
+                                
+                            end do
+                            if (pivote)then
+                                cycle
+                            end if
+                        end if
+            
+                        ${data.destination} = consumeInput()
+                    `;
+        }else if (data.quantifier[2] == null) {
+                const coma = data.quantifier[10].exprs[0].exprs[0].labeledExpr.annotatedExpr.expr.val;
+                console.log(coma);
+                return `
+                            max_reps = ${data.quantifier[6][0]}
+                            count = 0
+                            pivote = .false.
+                            lexemeStart = cursor
 
 
-                        do while (count < max_reps) 
-                            if (.not.  ${data.expr}) then
-                                cycle  ! Manejar el error si no hay una letra
+                            if (${data.expr}) then
+                            count = count + 1
+                                do while ( count < max_reps)
+                                    if (.not. acceptStringDelim('${coma}')) then
+                                        pivote = .false.
+                                        exit
+                                    end if
+                                    if (.not. ${data.expr}) then 
+                                        pivote = .true.
+                                        exit
+                                    end if
+                                count = count + 1
+                                end do
+                                
+                                if (pivote)then
+                                    cycle
+                                end if
+                            end if
+                            if (count > max_reps ) then
+                                cycle
+                            end if 
+                            ${data.destination} = consumeInput()
+                            
+                        `;;
+            }else if (data.quantifier[6] == null){
+                const coma = data.quantifier[10].exprs[0].exprs[0].labeledExpr.annotatedExpr.expr.val;
+                console.log(coma);
+                return `
+                            lexemeStart = cursor
+                            min_reps = ${data.quantifier[2][0]}  ! Número mínimo de repeticiones permitidas
+                            count = 0
+                            if ((${data.expr})) then
+                                count = count + 1
+                                do while ( .not. cursor > len(input))
+                                if (.not. acceptStringDelim('${coma}')) then
+                                    pivote = .false.
+                                    exit
+                                end if
+                                if (.not. ${data.expr}) then 
+                                    pivote = .true.
+                                    exit
+                                end if
+                                count = count + 1
+                            end do
+                            if (pivote)then
+                                    cycle
+                            end if
                             end if
                             
-
-                            ! Verificar si se necesita una coma después de la letra
-                            
-                            if (count < max_reps-1) then
-                                if (.not. ()) then
-                                    cycle  ! Manejar el error si no hay una coma
+                            !detectar minimo o maximo 
+                            if (count < min_reps ) then
+                                cycle
+                            end if
+                                ${data.destination} = consumeInput()                   
+                                        `;
+            }else{
+                const coma = data.quantifier[10].exprs[0].exprs[0].labeledExpr.annotatedExpr.expr.val;
+                console.log(coma);
+                return `
+                lexemeStart = cursor
+                min_reps = ${data.quantifier[2][0]}  ! Número mínimo de repeticiones permitidas
+                max_reps = ${data.quantifier[6][0]}  ! Número máximo de repeticiones permitidas
+                count = 0 
+                if ((${data.expr})) then
+                                count = count + 1
+                                do while ( .not. cursor > len(input))
+                                if (.not. acceptStringDelim('${coma}')) then
+                                    pivote = .false.
+                                    exit
                                 end if
-                            count = count + 1
-                        end do
-                        ${data.destination} = consumeInput()
-                        
-                    `;
-          } else {
-            throw new Error("Cantida debe ser mayor a 0");
-          }
-        }
-      }
+                                if (.not. ${data.expr}) then 
+                                    pivote = .true.
+                                    exit
+                                end if
+                                count = count + 1
+                            end do
+                            if (pivote)then
+                                    cycle
+                            end if
+                            end if
+                !detectar minimo o maximo 
+                if (count < min_reps .or. count > max_reps) then
+                    cycle
+                end if 
+                ${data.destination} = consumeInput()                      
+        `;
+            }
+
+    }
 
       throw new Error(`'${data.quantifier}' quantifier needs implementation`);
   }
