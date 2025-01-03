@@ -80,6 +80,27 @@ export class Opciones {
   }
 }
 
+export class ConteoAction {
+  /**
+   *
+    * @param {Predicate} start
+    * @param {Predicate} end
+    * @param {Predicate} simple
+    * @param {Opciones} delimiter
+  */
+
+  constructor(start, end, simple, delimiter) {
+    this.start = start;
+    this.end = end;
+    this.simple = simple;
+    this.delimiter = delimiter;
+  }
+
+  accept(visitor) {
+    return visitor.visitConteoAction(this);
+  }
+}
+
 /**
  * @implements {Node}
  */
@@ -118,6 +139,7 @@ export class Predicate {
     this.returnType = returnType;
     this.code = code;
     this.arguments = args;
+    this.isConteo = false;
   }
 
   /**
@@ -185,7 +207,7 @@ export class Annotated {
   /**
    *
    * @param {Node} expr
-   * @param {(string|Node)=} qty
+   * @param {(string|Node|ConteoAction)=} qty
    * @param {boolean=} text
    */
   constructor(expr, qty, text) {

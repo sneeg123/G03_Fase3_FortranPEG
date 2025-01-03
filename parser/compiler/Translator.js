@@ -33,6 +33,7 @@ export default class FortranTranslator {
     this.currentRule = "";
     this.currentChoice = 0;
     this.currentExpr = 0;
+    this.conteoAccion = 0;
   }
 
   /**
@@ -62,6 +63,7 @@ export default class FortranTranslator {
   visitRegla(node) {
     this.currentRule = node.id;
     this.currentChoice = 0;
+    this.conteoAccion = 0;
 
     if (node.start) this.translatingStart = true;
 
@@ -283,6 +285,90 @@ export default class FortranTranslator {
         destination: getExprId(this.currentChoice, this.currentExpr),
       });
     } else if (node.qty) {
+      if(node.qty instanceof CST.ConteoAction){
+        if(node.qty.delimiter){
+          if(node.qty.simple){
+            let simpleVal = node.qty.accept(this);
+            return Template.strExpr({
+              quantifier: node.qty,
+              conteos: [simpleVal, "simple"],
+              delim: node.qty.delimiter.exprs[0].exprs[0].labeledExpr.annotatedExpr.expr.val,
+              expr: node.expr.accept(this),
+              destination: getExprId(this.currentChoice, this.currentExpr),
+            });
+          }else if(node.qty.start){
+            if(node.qty.end){
+              let vals = node.qty.accept(this);
+              console.log(vals)
+              let startVal = vals[0];
+              let endVal = vals[1];
+              return Template.strExpr({
+                quantifier: node.qty,
+                conteos: [startVal, endVal, "doble"],
+                delim: node.qty.delimiter.exprs[0].exprs[0].labeledExpr.annotatedExpr.expr.val,
+                expr: node.expr.accept(this),
+                destination: getExprId(this.currentChoice, this.currentExpr),
+              });
+            }else{
+              let startVal = node.qty.accept(this);
+              return Template.strExpr({
+                quantifier: node.qty,
+                conteos: [startVal, "inicial"],
+                delim: node.qty.delimiter.exprs[0].exprs[0].labeledExpr.annotatedExpr.expr.val,
+                expr: node.expr.accept(this),
+                destination: getExprId(this.currentChoice, this.currentExpr),
+              });
+            }
+          }else if(node.qty.end){
+            let endVal = node.qty.accept(this);
+            return Template.strExpr({
+              quantifier: node.qty,
+              conteos: [endVal, "final"],
+              delim: node.qty.delimiter.exprs[0].exprs[0].labeledExpr.annotatedExpr.expr.val,
+              expr: node.expr.accept(this),
+              destination: getExprId(this.currentChoice, this.currentExpr),
+            });
+          }
+        }
+        if(node.qty.simple){
+          let simpleVal = node.qty.accept(this);
+          return Template.strExpr({
+            quantifier: node.qty,
+            conteos: [simpleVal, "simple"],
+            expr: node.expr.accept(this),
+            destination: getExprId(this.currentChoice, this.currentExpr),
+          });
+        }else if(node.qty.start){
+          if(node.qty.end){
+            let vals = node.qty.accept(this);
+            console.log(vals)
+            let startVal = vals[0];
+            let endVal = vals[1];
+            return Template.strExpr({
+              quantifier: node.qty,
+              conteos: [startVal, endVal, "doble"],
+              expr: node.expr.accept(this),
+              destination: getExprId(this.currentChoice, this.currentExpr),
+            });
+          }else{
+            let startVal = node.qty.accept(this);
+            return Template.strExpr({
+              quantifier: node.qty,
+              conteos: [startVal, "inicial"],
+              expr: node.expr.accept(this),
+              destination: getExprId(this.currentChoice, this.currentExpr),
+            });
+          }
+        }else if(node.qty.end){
+          let endVal = node.qty.accept(this);
+          return Template.strExpr({
+            quantifier: node.qty,
+            conteos: [endVal, "final"],
+            expr: node.expr.accept(this),
+            destination: getExprId(this.currentChoice, this.currentExpr),
+          });
+        }  
+      }
       if (node.expr instanceof CST.Identificador) {
         if (node.qty.length == 5) {
           if (node.qty[2][0] != 0) {
@@ -462,6 +548,55 @@ export default class FortranTranslator {
   }
 
   /**
+   * @param {CST.Regla} node
+   * @this {Visitor}
+   */
+  visitConteoAction(node){
+    if(node.delim){
+      if(node.simple){
+        this.actions.push(node.simple.accept(this));
+        this.conteoAccion++;
+        return `peg_${this.currentRule}_conteo${this.conteoAccion-1}`
+      }else if(node.start){
+        if(node.end){
+          this.actions.push(node.start.accept(this));
+          this.conteoAccion++;
+          this.actions.push(node.end.accept(this));
+          this.conteoAccion++;
+          return [`peg_${this.currentRule}_conteo${this.conteoAccion-2}`,`peg_${this.currentRule}_conteo${this.conteoAccion-1}`]
+        }
+        this.actions.push(node.start.accept(this));
+        this.conteoAccion++;
+        return `peg_${this.currentRule}_conteo${this.conteoAccion-1}`
+      }else if(node.end){
+        this.actions.push(node.end.accept(this));
+        this.conteoAccion++;
+        return `peg_${this.currentRule}_conteo${this.conteoAccion-1}`
+      }
+    }
+    if(node.simple){
+      this.actions.push(node.simple.accept(this));
+      this.conteoAccion++;
+      return `peg_${this.currentRule}_conteo${this.conteoAccion-1}`
+    }else if(node.start){
+      if(node.end){
+        this.actions.push(node.start.accept(this));
+        this.conteoAccion++;
+        this.actions.push(node.end.accept(this));
+        this.conteoAccion++;
+        return [`peg_${this.currentRule}_conteo${this.conteoAccion-2}`,`peg_${this.currentRule}_conteo${this.conteoAccion-1}`]
+      }
+      this.actions.push(node.start.accept(this));
+      this.conteoAccion++;
+      return `peg_${this.currentRule}_conteo${this.conteoAccion-1}`
+    }else if(node.end){
+      this.actions.push(node.end.accept(this));
+      this.conteoAccion++;
+      return `peg_${this.currentRule}_conteo${this.conteoAccion-1}`
+    }
+  }
+
+  /**
    * @param {CST.Assertion} node
    * @this {Visitor}
    */
@@ -496,6 +631,23 @@ export default class FortranTranslator {
    * @this {Visitor}
    */
   visitPredicate(node) {
+    if(node.isConteo){
+      console.log(node.returnType)
+      return Template.actionConteo({
+        ruleId: this.currentRule,
+        choice: this.conteoAccion,
+        returnType: node.returnType,
+        // signature: Object.keys(node.params),
+        // paramDeclarations: Object.entries(node.params).map(
+        //   ([label, ruleId]) =>
+        //     `${getReturnType(
+        //       getActionId(ruleId, this.currentChoice),
+        //       this.actionReturnTypes
+        //     )} :: ${label}`
+        // ),
+        code: node.code,
+      });
+    }
     return Template.action({
       ruleId: this.currentRule,
       choice: this.currentChoice,
