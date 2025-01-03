@@ -26,7 +26,7 @@ let decorations = [];
 
 // Analizar contenido del editor
 let cst;
-const analizar = () => {
+const analizar = async () => {
     const entrada = editor.getValue();
     ids.length = 0;
     usos.length = 0;
@@ -39,7 +39,15 @@ const analizar = () => {
             cst = null;
             return;
         } else {
-            salida.setValue('Análisis Exitoso');
+            // salida.setValue('Análisis Exitoso');
+            const fileContents = await generateParser(cst); // Llamada correcta a generateParser
+            salida.setValue(fileContents); // Mostrar el contenido generado en la salida
+
+            // Preparar el botón de descarga
+            const blob = new Blob([fileContents], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const button = document.getElementById('BotonDescarga'); // Asegúrate de que el ID coincide con el HTML
+            button.href = url;
         }
 
         // salida.setValue("Análisis Exitoso");
@@ -89,29 +97,29 @@ editor.onDidChangeModelContent(() => {
     analizar();
 });
 
-let downloadHappening = false;
-const button = document.getElementById('BotonDescarga');
-button.addEventListener('click', () => {
-    if (downloadHappening) return;
-    if (!cst) {
-        alert('Escribe una gramatica valida');
-        return;
-    }
-    let url;
-    generateParser(cst)
-        .then((fileContents) => {
-            const blob = new Blob([fileContents], { type: 'text/plain' });
-            url = URL.createObjectURL(blob);
-            button.href = url;
-            downloadHappening = true;
-            button.click();
-        })
-        .finally(() => {
-            URL.revokeObjectURL(url);
-            button.href = '#';
-            downloadHappening = false;
-        });
-});
+// let downloadHappening = false;
+// const button = document.getElementById('BotonDescarga');
+// button.addEventListener('click', () => {
+//     if (downloadHappening) return;
+//     if (!cst) {
+//         alert('Escribe una gramatica valida');
+//         return;
+//     }
+//     let url;
+//     generateParser(cst)
+//         .then((fileContents) => {
+//             const blob = new Blob([fileContents], { type: 'text/plain' });
+//             url = URL.createObjectURL(blob);
+//             button.href = url;
+//             downloadHappening = true;
+//             button.click();
+//         })
+//         .finally(() => {
+//             URL.revokeObjectURL(url);
+//             button.href = '#';
+//             downloadHappening = false;
+//         });
+// });
 
 // CSS personalizado para resaltar el error y agregar un warning
 const style = document.createElement('style');
