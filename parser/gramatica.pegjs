@@ -110,6 +110,34 @@ conteo
   / "|" _ (numero / id:identificador)? _ ".." _ (numero / id2:identificador)? _ "|"
   / "|" _ (numero / id:identificador)? _ "," _ opciones _ "|"
   / "|" _ (numero / id:identificador)? _ ".." _ (numero / id2:identificador)? _ "," _ opciones _ "|"
+  / "|" _ p1:(predicate) _ "|"{
+    p1.isConteo = true;
+    return new n.ConteoAction(null, null, p1, null);
+  }
+  / "|" _ p1:(predicate)? _ ".." _ p2:(predicate)? _ "|"{
+    if(p1){
+      p1.isConteo = true;
+    }
+    if(p2){
+      p2.isConteo = true;
+    }
+    return new n.ConteoAction(p1, p2, null, null);
+  }
+  / "|" _ p1:(predicate)? _ "," _ del:opciones _ "|"{
+    if(p1){
+      p1.isConteo = true;
+    }
+    return new n.ConteoAction(null, null, p1, del);
+  }
+  / "|" _ p1:(predicate)? _ ".." _ p2:(predicate)? _ "," _ del:opciones _ "|"{
+    if(p1){
+      p1.isConteo = true;
+    }
+    if(p2){
+      p2.isConteo = true;
+    }
+    return new n.ConteoAction(p1, p2, null, del);
+  }
 
 predicate
   = _ assertion:('&'/"!")? "{" [ \t\n\r]* returnType:predicateReturnType code:$[^}]* "}" {

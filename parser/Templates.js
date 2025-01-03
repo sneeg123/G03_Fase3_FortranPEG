@@ -708,3 +708,14 @@ export const action = (data) => {
    end function peg_${data.ruleId}_f${data.choice}
    `;
 };
+
+export const actionConteo = (data) => {
+    const signature = data.signature.join(", ");
+    return `
+     function peg_${data.ruleId}_conteo${data.choice}(${signature}) result(res)
+         ${data.paramDeclarations.join("\n")}
+         ${data.returnType} :: res
+         ${data.code}
+     end function peg_${data.ruleId}_f${data.choice}
+     `;
+  };

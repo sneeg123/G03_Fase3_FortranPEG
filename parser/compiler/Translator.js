@@ -33,6 +33,7 @@ export default class FortranTranslator {
     this.currentRule = "";
     this.currentChoice = 0;
     this.currentExpr = 0;
+    this.conteoAccion = 0;
   }
 
   /**
@@ -62,6 +63,7 @@ export default class FortranTranslator {
   visitRegla(node) {
     this.currentRule = node.id;
     this.currentChoice = 0;
+    this.conteoAccion = 0;
 
     if (node.start) this.translatingStart = true;
 
@@ -283,6 +285,9 @@ export default class FortranTranslator {
         destination: getExprId(this.currentChoice, this.currentExpr),
       });
     } else if (node.qty) {
+      if(node.qty instanceof CST.ConteoAction){
+        return node.qty.accept(this);
+      }
       if (node.expr instanceof CST.Identificador) {
         if (node.qty.length == 5) {
           if (node.qty[2][0] != 0) {
@@ -462,6 +467,22 @@ export default class FortranTranslator {
   }
 
   /**
+   * @param {CST.Regla} node
+   * @this {Visitor}
+   */
+  visitConteoAction(node){
+    if(node.simple){
+      return node.simple.accept(this);
+    }else if(node.start){
+      if(node.end){
+        return `${node.start.accept(this)}${node.end.accept(this)}`;
+      }
+    }else if(node.end){
+      return node.end.accept(this);
+    }
+  }
+
+  /**
    * @param {CST.Assertion} node
    * @this {Visitor}
    */
@@ -496,6 +517,9 @@ export default class FortranTranslator {
    * @this {Visitor}
    */
   visitPredicate(node) {
+    if(node.isConteo){
+      return "ESKELEEEER";
+    }
     return Template.action({
       ruleId: this.currentRule,
       choice: this.currentChoice,
