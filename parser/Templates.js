@@ -255,18 +255,20 @@ export const rule = (data) => `
    end function peg_${data.id}_kleene
 `;
 
-function getReplaceKleene(data){
-    if(data.returnType == "character(len=:), allocatable"){
-        return `${data.expr.replace(
-            /case default[\s\S]*?call pegError\(\)/,
-            'case default\n        res = ""'
-          )}`;
-    }else if(data.returnType == "integer"){
-        return `${data.expr.replace(
-            /case default[\s\S]*?call pegError\(\)/,
-            'case default\n        res = -99999'
-          )}`;
-    }
+function getReplaceKleene(data) {
+  if (data.returnType == "character(len=:), allocatable") {
+    return `${data.expr.replace(
+      /case default[\s\S]*?call pegError\(\)/,
+      'case default\n        res = ""'
+    )}`;
+  } else if (data.returnType == "integer") {
+    return `${data.expr.replace(
+      /case default[\s\S]*?call pegError\(\)/,
+      "case default\n        res = -99999"
+    )}`;
+  } else {
+    return ` `;
+  }
 }
 
 /**
@@ -301,6 +303,8 @@ export const election = (data) => `
  *  exprs: string[]
  *  startingRule: boolean
  *  resultExpr: string
+ *  assertion: boolean
+ *  negativeAssertion: boolean
  * }} data
  * @returns
  */
@@ -308,6 +312,17 @@ export const union = (data) => `
                ${data.exprs.join("\n")}
                ${data.startingRule ? "if (.not. acceptEOF()) cycle" : ""}
                ${data.resultExpr}
+               ${
+                 data.assertion
+                   ? "if (.not. res)then \n \t\t\t\tcycle \n \t\t\t\tend if"
+                   : ""
+               }
+                ${
+                  data.negativeAssertion
+                    ? "if (res)then \n \t\t\t\tcycle \n \t\t\t\tend if"
+                    : ""
+                }
+
 `;
 
 /**
@@ -441,7 +456,6 @@ export const strExpr = (data) => {
         }
         if (data.quantifier[4] == ",") {
           if (data.quantifier[2][0] != 0) {
-    
             return `
                         max_reps = ${data.quantifier[2][0]}
                         count = 0
@@ -494,9 +508,15 @@ export const strExpr_NegAssertion = (data) => {
  * }} data
  * @returns
  */
-export const strResultExpr = (data) => `
+export const strResultExpr = (data) => {
+  if (data.exprs && data.exprs.length > 0) {
+    return `
                res = ${data.exprs.map((expr) => `toStr(${expr})`).join("//")}
-`;
+    `;
+  } else {
+    return ` `;
+  }
+};
 
 /**
  *

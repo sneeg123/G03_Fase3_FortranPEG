@@ -45,6 +45,7 @@ opciones
 
 union
   = expr:parsingExpression rest:(_ @parsingExpression !(_ literales? _ "=") )* action:(_ @predicate)? {
+
     const exprs = [expr, ...rest];
     const labeledExprs = exprs
         .filter((expr) => expr instanceof n.Pluck)
@@ -57,15 +58,16 @@ union
             return args;
         }, {});
     }
+
     return new n.Union(exprs, action);
   }
 
 parsingExpression
   = pluck
-  / '!' assertion:(match/predicate) {
+  / '!' assertion:(match) {
     return new n.NegAssertion(assertion);
   }
-  / '&' assertion:(match/predicate) {
+  / '&' assertion:(match) {
     return new n.Assertion(assertion);
   }
   / "!." {
@@ -110,8 +112,8 @@ conteo
   / "|" _ (numero / id:identificador)? _ ".." _ (numero / id2:identificador)? _ "," _ opciones _ "|"
 
 predicate
-  = "{" [ \t\n\r]* returnType:predicateReturnType code:$[^}]* "}" {
-    return new n.Predicate(returnType, code, {})
+  = _ assertion:('&'/"!")? "{" [ \t\n\r]* returnType:predicateReturnType code:$[^}]* "}" {
+    return new n.Predicate(returnType, code, assertion,{})
   }
 
 predicateReturnType

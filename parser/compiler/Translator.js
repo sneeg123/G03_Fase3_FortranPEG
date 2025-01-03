@@ -76,10 +76,11 @@ export default class FortranTranslator {
           .filter((expr) => expr instanceof CST.Pluck)
           .map((label, j) => {
             const expr = label.labeledExpr.annotatedExpr.expr;
-            return `${expr instanceof CST.Identificador
-              ? getReturnType(getActionId(expr.id, i), this.actionReturnTypes)
-              : "character(len=:), allocatable"
-              } :: expr_${i}_${j}`;
+            return `${
+              expr instanceof CST.Identificador
+                ? getReturnType(getActionId(expr.id, i), this.actionReturnTypes)
+                : "character(len=:), allocatable"
+            } :: expr_${i}_${j}`;
           })
       ),
       expr: node.expr.accept(this),
@@ -134,13 +135,17 @@ export default class FortranTranslator {
     this.currentExpr = 0;
 
     if (node.action) this.actions.push(node.action.accept(this));
+
     return Template.union({
       exprs: node.exprs.map((expr) => {
         const translation = expr.accept(this);
         if (expr instanceof CST.Pluck) this.currentExpr++;
         return translation;
       }),
+
       startingRule: this.translatingStart,
+      assertion: node.action?.arguments === "&",
+      negativeAssertion: node.action?.arguments === "!",
       resultExpr,
     });
   }
@@ -174,50 +179,50 @@ export default class FortranTranslator {
             getActionId(node.expr.id, 0),
             this.actionReturnTypes
           );
-          let code = '';
-          if (tipo == 'character(len=:), allocatable') {
+          let code = "";
+          if (tipo == "character(len=:), allocatable") {
             code += `${getExprId(this.currentChoice, this.currentExpr)} = ""
                         temp = "-"
                         do while (.not. temp == "")
                             temp = ${node.expr
-                .accept(this)
-                .replace(/\(\)$/, "")}_kleene()
+                              .accept(this)
+                              .replace(/\(\)$/, "")}_kleene()
                             ${getExprId(
-                  this.currentChoice,
-                  this.currentExpr
-                )} = ${getExprId(
-                  this.currentChoice,
-                  this.currentExpr
-                )} // temp
+                              this.currentChoice,
+                              this.currentExpr
+                            )} = ${getExprId(
+              this.currentChoice,
+              this.currentExpr
+            )} // temp
                         end do
                         `;
-          } else if (tipo == 'integer') {
+          } else if (tipo == "integer") {
             code += `${getExprId(this.currentChoice, this.currentExpr)} = -99999
                         tempi = -9999
                         do while (.not. tempi == -99999)
                         temp = intToStr(${getExprId(
-              this.currentChoice,
-              this.currentExpr
-            )}) // intToStr(tempi)
+                          this.currentChoice,
+                          this.currentExpr
+                        )}) // intToStr(tempi)
                         ${getExprId(
-              this.currentChoice,
-              this.currentExpr
-            )} = strToInt(temp)
+                          this.currentChoice,
+                          this.currentExpr
+                        )} = strToInt(temp)
                         tempi = ${node.expr
-                .accept(this)
-                .replace(/\(\)$/, "")}_kleene()
+                          .accept(this)
+                          .replace(/\(\)$/, "")}_kleene()
                         end do
                         `;
           }
           return code;
         }
         if (node.qty == "+") {
-          let code = '';
+          let code = "";
           let tipo = getReturnType(
             getActionId(node.expr.id, 0),
             this.actionReturnTypes
           );
-          if (tipo == 'character(len=:), allocatable') {
+          if (tipo == "character(len=:), allocatable") {
             code += `${getExprId(
               this.currentChoice,
               this.currentExpr
@@ -225,32 +230,35 @@ export default class FortranTranslator {
                         temp = "-"
                         do while (.not. temp == "")
                             temp = ${node.expr
-                .accept(this)
-                .replace(/\(\)$/, "")}_kleene()
+                              .accept(this)
+                              .replace(/\(\)$/, "")}_kleene()
                             ${getExprId(
-                  this.currentChoice,
-                  this.currentExpr
-                )} = ${getExprId(
-                  this.currentChoice,
-                  this.currentExpr
-                )} // temp
+                              this.currentChoice,
+                              this.currentExpr
+                            )} = ${getExprId(
+              this.currentChoice,
+              this.currentExpr
+            )} // temp
                         end do
                         `;
-          }else if (tipo == 'integer') {
-            code += `${getExprId(this.currentChoice, this.currentExpr)} = ${node.expr.accept(this)}
+          } else if (tipo == "integer") {
+            code += `${getExprId(
+              this.currentChoice,
+              this.currentExpr
+            )} = ${node.expr.accept(this)}
                         tempi = -9999
                         do while (.not. tempi == -99999)
                         temp = intToStr(${getExprId(
-              this.currentChoice,
-              this.currentExpr
-            )}) // intToStr(tempi)
+                          this.currentChoice,
+                          this.currentExpr
+                        )}) // intToStr(tempi)
                         ${getExprId(
-              this.currentChoice,
-              this.currentExpr
-            )} = strToInt(temp)
+                          this.currentChoice,
+                          this.currentExpr
+                        )} = strToInt(temp)
                         tempi = ${node.expr
-                .accept(this)
-                .replace(/\(\)$/, "")}_kleene()
+                          .accept(this)
+                          .replace(/\(\)$/, "")}_kleene()
                         end do
                         `;
           }
@@ -276,20 +284,29 @@ export default class FortranTranslator {
       });
     } else if (node.qty) {
       if (node.expr instanceof CST.Identificador) {
-        if (node.qty.length == 5){
-          if (node.qty[2][0] != 0){
-              return `
+        if (node.qty.length == 5) {
+          if (node.qty[2][0] != 0) {
+            return `
                   max_reps = ${node.qty[2][0]}
                   count = 0
                   ${getExprId(
-                  this.currentChoice,
-                  this.currentExpr)} = ${node.expr.accept(this)}
+                    this.currentChoice,
+                    this.currentExpr
+                  )} = ${node.expr.accept(this)}
                   temp = "-"
                   count = count + 1
                   do while (count < max_reps .and. (.not. temp == ""))
                       
-                          temp = ${node.expr.accept(this).replace(/\(\)$/, "")}_kleene()
-                          ${getExprId(this.currentChoice, this.currentExpr)} = ${getExprId(this.currentChoice, this.currentExpr)} // temp
+                          temp = ${node.expr
+                            .accept(this)
+                            .replace(/\(\)$/, "")}_kleene()
+                          ${getExprId(
+                            this.currentChoice,
+                            this.currentExpr
+                          )} = ${getExprId(
+              this.currentChoice,
+              this.currentExpr
+            )} // temp
                           
                           if (.not. temp == "") then
                               count = count + 1
@@ -301,32 +318,46 @@ export default class FortranTranslator {
                       cycle
                   end if 
                   `;
-          }else{
-              throw new Error('Cantida debe ser mayor a 0');
+          } else {
+            throw new Error("Cantida debe ser mayor a 0");
           }
-      }else if(node.qty.length == 9){
-          if (node.qty[4] == ".."){
-              if (node.qty[2] == null &  node.qty[6] == null){
-                  return `${getExprId(
-                      this.currentChoice,
-                      this.currentExpr)} = ""
+        } else if (node.qty.length == 9) {
+          if (node.qty[4] == "..") {
+            if ((node.qty[2] == null) & (node.qty[6] == null)) {
+              return `${getExprId(this.currentChoice, this.currentExpr)} = ""
                       temp = "-"
                       do while (.not. temp == "")
-                          temp = ${node.expr.accept(this).replace(/\(\)$/, "")}_kleene()
-                          ${getExprId(this.currentChoice, this.currentExpr)} = ${getExprId(this.currentChoice, this.currentExpr)} // temp
+                          temp = ${node.expr
+                            .accept(this)
+                            .replace(/\(\)$/, "")}_kleene()
+                          ${getExprId(
+                            this.currentChoice,
+                            this.currentExpr
+                          )} = ${getExprId(
+                this.currentChoice,
+                this.currentExpr
+              )} // temp
                       end do
-                      `
-              }else if (node.qty[2] == null){
-                  return`
-                  max_reps = ${node.qty[6][0]}  ! Número maximo de repeticiones permitidas
+                      `;
+            } else if (node.qty[2] == null) {
+              return `
+                  max_reps = ${
+                    node.qty[6][0]
+                  }  ! Número maximo de repeticiones permitidas
                   count = 0
-                  ${getExprId(
-                    this.currentChoice,
-                    this.currentExpr)} = ""
+                  ${getExprId(this.currentChoice, this.currentExpr)} = ""
                   temp = "-"
                   do while (count < max_reps .and. (.not. temp == ""))
-                      temp = ${node.expr.accept(this).replace(/\(\)$/, "")}_kleene()
-                          ${getExprId(this.currentChoice, this.currentExpr)} = ${getExprId(this.currentChoice, this.currentExpr)} // temp
+                      temp = ${node.expr
+                        .accept(this)
+                        .replace(/\(\)$/, "")}_kleene()
+                          ${getExprId(
+                            this.currentChoice,
+                            this.currentExpr
+                          )} = ${getExprId(
+                this.currentChoice,
+                this.currentExpr
+              )} // temp
                               
                           if (.not. temp == "") then
                               count = count + 1
@@ -337,21 +368,32 @@ export default class FortranTranslator {
                       if ( count > max_reps) then
                           cycle
                       end if 
-                      `; 
-              }else if (node.qty[6] == null){
-                  return`
+                      `;
+            } else if (node.qty[6] == null) {
+              return `
                           
-                      min_reps = ${node.qty[2][0]}  ! Número mínimo de repeticiones permitidas
+                      min_reps = ${
+                        node.qty[2][0]
+                      }  ! Número mínimo de repeticiones permitidas
                       count = 0
                       ${getExprId(
-                      this.currentChoice,
-                      this.currentExpr)} = ${node.expr.accept(this)}
+                        this.currentChoice,
+                        this.currentExpr
+                      )} = ${node.expr.accept(this)}
                       temp = "-"
                       count = count + 1
                       do while ( .not. temp == "")
                           
-                          temp = ${node.expr.accept(this).replace(/\(\)$/, "")}_kleene()
-                          ${getExprId(this.currentChoice, this.currentExpr)} = ${getExprId(this.currentChoice, this.currentExpr)} // temp
+                          temp = ${node.expr
+                            .accept(this)
+                            .replace(/\(\)$/, "")}_kleene()
+                          ${getExprId(
+                            this.currentChoice,
+                            this.currentExpr
+                          )} = ${getExprId(
+                this.currentChoice,
+                this.currentExpr
+              )} // temp
                           
                           if (.not. temp == "") then
                               count = count + 1
@@ -363,18 +405,28 @@ export default class FortranTranslator {
                           cycle
                       end if 
                           `;
-              }else{
-                  return `
+            } else {
+              return `
                       
-                      min_reps = ${node.qty[2][0]}  ! Número mínimo de repeticiones permitidas
-                      max_reps = ${node.qty[6][0]}  ! Número máximo de repeticiones permitidas
-                      ${getExprId(
-                        this.currentChoice,
-                        this.currentExpr)} = ""
+                      min_reps = ${
+                        node.qty[2][0]
+                      }  ! Número mínimo de repeticiones permitidas
+                      max_reps = ${
+                        node.qty[6][0]
+                      }  ! Número máximo de repeticiones permitidas
+                      ${getExprId(this.currentChoice, this.currentExpr)} = ""
                       temp = "-"
                       do while (count < max_reps .and. (.not. temp == ""))
-                          temp = ${node.expr.accept(this).replace(/\(\)$/, "")}_kleene()
-                          ${getExprId(this.currentChoice, this.currentExpr)} = ${getExprId(this.currentChoice, this.currentExpr)} // temp
+                          temp = ${node.expr
+                            .accept(this)
+                            .replace(/\(\)$/, "")}_kleene()
+                          ${getExprId(
+                            this.currentChoice,
+                            this.currentExpr
+                          )} = ${getExprId(
+                this.currentChoice,
+                this.currentExpr
+              )} // temp
                           
                           if (.not. temp == "") then
                               count = count + 1
@@ -384,10 +436,10 @@ export default class FortranTranslator {
                       if (count < min_reps .or. count > max_reps) then
                           cycle
                       end if 
-          `
-              }
+          `;
+            }
           }
-      }
+        }
       } else {
         return Template.strExpr({
           quantifier: node.qty,
@@ -417,6 +469,7 @@ export default class FortranTranslator {
     if (node.assertion instanceof CST.Identificador) {
       return `temp= ${node.assertion.accept(this)}`;
     }
+
     return Template.strExpr_Assertion({
       expr: node.assertion.accept(this),
       destination: getExprId(this.currentChoice, this.currentExpr),
