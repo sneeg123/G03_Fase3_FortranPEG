@@ -173,7 +173,11 @@ export default class FortranTranslator {
    * @this {Visitor}
    */
   visitAnnotated(node) {
+    if (node.expr instanceof CST.Opciones){
+      return ``
+    }
     if (node.qty && typeof node.qty === "string") {
+      
       if (node.expr instanceof CST.Identificador) {
         // TODO: Implement quantifiers (i.e., ?, *, +)
         if (node.qty == "*") {
