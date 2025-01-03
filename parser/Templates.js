@@ -236,6 +236,7 @@ export const rule = (data) => `
        ${data.returnType} :: res
        ${data.exprDeclarations.join("\n")}
        character(len=:), allocatable :: temp
+       integer :: count, min_reps, max_reps
        integer :: i, tempi
 
        savePoint = cursor
@@ -440,10 +441,7 @@ export const strExpr = (data) => {
         }
         if (data.quantifier[4] == ",") {
           if (data.quantifier[2][0] != 0) {
-            let opcionesTranslation = "";
-            if (data.quantifier[6] instanceof CST.Opciones) {
-              opcionesTranslation = this.visitOpciones(data.quantifier[6]);
-            }
+    
             return `
                         max_reps = ${data.quantifier[2][0]}
                         count = 0
@@ -459,7 +457,7 @@ export const strExpr = (data) => {
                             ! Verificar si se necesita una coma después de la letra
                             
                             if (count < max_reps-1) then
-                                if (.not. ${opcionesTranslation}) then
+                                if (.not. ()) then
                                     cycle  ! Manejar el error si no hay una coma
                                 end if
                             count = count + 1

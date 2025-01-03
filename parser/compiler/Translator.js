@@ -276,6 +276,118 @@ export default class FortranTranslator {
       });
     } else if (node.qty) {
       if (node.expr instanceof CST.Identificador) {
+        if (node.qty.length == 5){
+          if (node.qty[2][0] != 0){
+              return `
+                  max_reps = ${node.qty[2][0]}
+                  count = 0
+                  ${getExprId(
+                  this.currentChoice,
+                  this.currentExpr)} = ${node.expr.accept(this)}
+                  temp = "-"
+                  count = count + 1
+                  do while (count < max_reps .and. (.not. temp == ""))
+                      
+                          temp = ${node.expr.accept(this).replace(/\(\)$/, "")}_kleene()
+                          ${getExprId(this.currentChoice, this.currentExpr)} = ${getExprId(this.currentChoice, this.currentExpr)} // temp
+                          
+                          if (.not. temp == "") then
+                              count = count + 1
+                          end if
+                      
+                  end do
+                  !detectar minimo o maximo 
+                  if ( count .NE. max_reps) then
+                      cycle
+                  end if 
+                  `;
+          }else{
+              throw new Error('Cantida debe ser mayor a 0');
+          }
+      }else if(node.qty.length == 9){
+          if (node.qty[4] == ".."){
+              if (node.qty[2] == null &  node.qty[6] == null){
+                  return `${getExprId(
+                      this.currentChoice,
+                      this.currentExpr)} = ""
+                      temp = "-"
+                      do while (.not. temp == "")
+                          temp = ${node.expr.accept(this).replace(/\(\)$/, "")}_kleene()
+                          ${getExprId(this.currentChoice, this.currentExpr)} = ${getExprId(this.currentChoice, this.currentExpr)} // temp
+                      end do
+                      `
+              }else if (node.qty[2] == null){
+                  return`
+                  max_reps = ${node.qty[6][0]}  ! Número maximo de repeticiones permitidas
+                  count = 0
+                  ${getExprId(
+                    this.currentChoice,
+                    this.currentExpr)} = ""
+                  temp = "-"
+                  do while (count < max_reps .and. (.not. temp == ""))
+                      temp = ${node.expr.accept(this).replace(/\(\)$/, "")}_kleene()
+                          ${getExprId(this.currentChoice, this.currentExpr)} = ${getExprId(this.currentChoice, this.currentExpr)} // temp
+                              
+                          if (.not. temp == "") then
+                              count = count + 1
+                          end if
+                          
+                      end do
+                      !detectar minimo o maximo 
+                      if ( count > max_reps) then
+                          cycle
+                      end if 
+                      `; 
+              }else if (node.qty[6] == null){
+                  return`
+                          
+                      min_reps = ${node.qty[2][0]}  ! Número mínimo de repeticiones permitidas
+                      count = 0
+                      ${getExprId(
+                      this.currentChoice,
+                      this.currentExpr)} = ${node.expr.accept(this)}
+                      temp = "-"
+                      count = count + 1
+                      do while ( .not. temp == "")
+                          
+                          temp = ${node.expr.accept(this).replace(/\(\)$/, "")}_kleene()
+                          ${getExprId(this.currentChoice, this.currentExpr)} = ${getExprId(this.currentChoice, this.currentExpr)} // temp
+                          
+                          if (.not. temp == "") then
+                              count = count + 1
+                          end if
+                          
+                      end do
+                      !detectar minimo o maximo 
+                      if (count < min_reps ) then
+                          cycle
+                      end if 
+                          `;
+              }else{
+                  return `
+                      
+                      min_reps = ${node.qty[2][0]}  ! Número mínimo de repeticiones permitidas
+                      max_reps = ${node.qty[6][0]}  ! Número máximo de repeticiones permitidas
+                      ${getExprId(
+                        this.currentChoice,
+                        this.currentExpr)} = ""
+                      temp = "-"
+                      do while (count < max_reps .and. (.not. temp == ""))
+                          temp = ${node.expr.accept(this).replace(/\(\)$/, "")}_kleene()
+                          ${getExprId(this.currentChoice, this.currentExpr)} = ${getExprId(this.currentChoice, this.currentExpr)} // temp
+                          
+                          if (.not. temp == "") then
+                              count = count + 1
+                          end if
+                      end do
+                      !detectar minimo o maximo 
+                      if (count < min_reps .or. count > max_reps) then
+                          cycle
+                      end if 
+          `
+              }
+          }
+      }
       } else {
         return Template.strExpr({
           quantifier: node.qty,
